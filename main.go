@@ -9,8 +9,10 @@ import (
 )
 
 const (
+	FPS = 10
     H_MAX = 65
     W_MAX = 125
+    CELL_RAND = 10
 )
 
 type CGL struct {
@@ -30,7 +32,7 @@ func initCGL() CGL {
     for i:=0; i < cgl.height; i++{
         cgl.gameMap[i] = make([]bool, cgl.width)
         for j:=0; j < cgl.width; j++{
-            v := rand.Intn(10)
+            v := rand.Intn(CELL_RAND)
             if v == 0 {
                 cgl.gameMap[i][j] = true
             } else {
