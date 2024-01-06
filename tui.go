@@ -23,10 +23,13 @@ const (
 
 // Style
 var (
+    cyan = lipgloss.Color("86")
+    purple = lipgloss.Color("201")
+    orange = lipgloss.Color("202")
     colors = []lipgloss.Style {
-        lipgloss.NewStyle().Foreground(lipgloss.Color("86")),
-        lipgloss.NewStyle().Foreground(lipgloss.Color("201")),
-        lipgloss.NewStyle().Foreground(lipgloss.Color("202")),
+        lipgloss.NewStyle().Foreground(cyan),
+        lipgloss.NewStyle().Foreground(purple),
+        lipgloss.NewStyle().Foreground(orange),
     }
 )
 
@@ -75,19 +78,9 @@ func (m Model) View() string {
     for h:=0; h<m.Height; h++{
         for w:=0; w<m.Width; w++{
             if (*m.Grid)[h][w] {
-                frame.WriteString(colors[0].
-                    BorderTop(true).
-                    BorderBottom(false).
-                    BorderLeft(true).
-                    BorderRight(false).
-                    Render("■"))
+                frame.WriteString(colors[0].Render("■"))
             } else {
-                frame.WriteString(colors[0].
-                    BorderTop(true).
-                    BorderBottom(false).
-                    BorderLeft(true).
-                    BorderRight(false).
-                    Render(" "))
+                frame.WriteString(" ")
             }
         }
         frame.WriteRune('\n')
