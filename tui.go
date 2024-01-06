@@ -17,7 +17,6 @@ const (
 / /__/ _ \/ _ \ |/|/ / _  / // (_-<  / (_ / _ /  ' \/ -_)  / _ \/ _/ / /__/ / _/ -_)
 \___/\___/_//_/__,__/\_,_/\_, /___/  \___/\_,_/_/_/_/\__/  \___/_/  /____/_/_/ \__/ 
                          /___/
-
 `
 )
 
@@ -92,9 +91,11 @@ func (m Model) View() string {
 %s
 %s
 %s
+%s
         `,
-		colors[1].Width(W_MAX).Render(TITLE),
+		colors[1].Width(W_MAX).AlignHorizontal(0.5).Render(TITLE),
 		colors[2].Width(W_MAX).Render(strings.Repeat("=", W_MAX)),
+		colors[2].Width(W_MAX).AlignHorizontal(0.5).Render("Press Esc/Ctrl+C to quit"),
 		frame.String(),
 	)
 }
