@@ -12,7 +12,7 @@ const (
 	FPS       = 10
 	H_MAX     = 65
 	W_MAX     = 130
-	CELL_RAND = 10
+	CELL_RAND = 8
 )
 
 type CGL struct {
