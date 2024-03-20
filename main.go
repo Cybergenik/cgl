@@ -9,9 +9,8 @@ import (
 )
 
 const (
-	FPS       = 10
 	H_MAX     = 65
-	W_MAX     = 130
+	W_MAX     = 160
 	CELL_RAND = 8
 )
 
@@ -31,14 +30,6 @@ func initCGL() CGL {
 	}
 	for i := 0; i < cgl.height; i++ {
 		cgl.gameMap[i] = make([]bool, cgl.width)
-		for j := 0; j < cgl.width; j++ {
-			v := rand.Intn(CELL_RAND)
-			if v == 0 {
-				cgl.gameMap[i][j] = true
-			} else {
-				cgl.gameMap[i][j] = false
-			}
-		}
 	}
 	return cgl
 }
@@ -102,11 +93,63 @@ func (cgl *CGL) gameLoop() {
 	}
 }
 
+func (cgl *CGL) RandomFill() {
+	for i := 0; i < cgl.height; i++ {
+		for j := 0; j < cgl.width; j++ {
+			v := rand.Intn(CELL_RAND)
+			if v == 0 {
+				cgl.gameMap[i][j] = true
+			} else {
+				cgl.gameMap[i][j] = false
+			}
+		}
+	}
+}
+
+func (cgl *CGL) ResetMap() {
+	for i := 0; i < cgl.height; i++ {
+		for j := 0; j < cgl.width; j++ {
+			cgl.gameMap[i][j] = false
+		}
+	}
+}
+
+func (cgl *CGL) UpdateAdd(x, y int) {
+	if x < 0 || x >= cgl.height {
+		return
+	}
+	if y < 0 || y >= cgl.width {
+		return
+	}
+	cgl.gameMap[x][y] = true
+}
+
+func (cgl *CGL) UpdateRemove(x, y int) {
+	if x < 0 || x >= cgl.height {
+		return
+	}
+	if y < 0 || y >= cgl.width {
+		return
+	}
+	cgl.gameMap[x][y] = false
+}
+
+func (cgl *CGL) SyncFrame() {
+	cgl.updateCh <- struct{}{}
+}
+
+func (cgl *CGL) GetReadOnlyMap() *[][]bool {
+	return &cgl.gameMap
+}
+
+func (cgl *CGL) StartGame() {
+	go cgl.gameLoop()
+}
+
 func main() {
 	cgl := initCGL()
-	tui_model := InitModel(cgl.updateCh, &cgl.gameMap, cgl.height, cgl.width)
-	go cgl.gameLoop()
-	p := tea.NewProgram(tui_model)
+	tui_model := InitModel(&cgl, cgl.height, cgl.width)
+	p := tea.NewProgram(tui_model, tea.WithMouseCellMotion())
 	if _, err := p.Run(); err != nil {
 		fmt.Println(err)
 		os.Exit(-1)
