@@ -73,12 +73,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
 		case tea.KeyEnter:
+			if m.GameState != Mapping {
+				break
+			}
 			m.GameState = Playing
 			m.GameEngine.StartGame()
-			return m, tea.DisableMouse
+			return m, tea.Batch(tea.DisableMouse, tea.ClearScreen)
 		case tea.KeySpace:
+			if m.GameState != Mapping {
+				break
+			}
 			m.GameEngine.RandomFill()
 		case tea.KeyBackspace:
+			if m.GameState != Mapping {
+				break
+			}
 			m.GameEngine.ResetMap()
 		case tea.KeyRight:
 			m.FPS += 1
@@ -117,7 +126,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case tea.WindowSizeMsg:
-		m.Height = int(math.Min(float64(H_MAX), float64(msg.Height)))
+		m.Height = int(math.Min(float64(H_MAX), float64(msg.Height-12)))
 		m.Width = int(math.Min(float64(W_MAX), float64(msg.Width)))
 	case TickMsg:
 		return m, frameTick(m.FPS)
@@ -143,7 +152,7 @@ func (m Model) View() string {
 	if m.GameState == Playing {
 		//sync frame render to game state
 		m.GameEngine.SyncFrame()
-		titleMsg = "Press Esc/Ctrl+C to quit"
+		titleMsg = TITLE
 	} else if m.GameState == Mapping {
 		titleMsg = `MAP EDITOR: 
 L-Click to Add, R-Click to Remove
@@ -161,10 +170,10 @@ ENTER:    done
 %s
 %s
 `,
-		colors[1].Width(W_MAX).AlignHorizontal(0.5).Render(TITLE),
-		colors[2].Width(W_MAX).Render(strings.Repeat("=", W_MAX)),
-		colors[2].Width(W_MAX).AlignHorizontal(0.5).Render(fmt.Sprintf("FPS: %d  ←-/+→", m.FPS)),
-		colors[2].Width(W_MAX).AlignHorizontal(0.5).Render(titleMsg),
+		colors[1].Width(m.Width).AlignHorizontal(0.5).Render(titleMsg),
+		colors[2].Width(m.Width).Render(strings.Repeat("=", m.Width)),
+		colors[2].Width(m.Width).AlignHorizontal(0.5).Render(fmt.Sprintf("FPS: %d  ←-/+→", m.FPS)),
+		colors[2].Width(m.Width).AlignHorizontal(0.5).Render("Press Esc/Ctrl+C to quit"),
 		frame.String(),
 	)
 }

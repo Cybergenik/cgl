@@ -149,7 +149,11 @@ func (cgl *CGL) StartGame() {
 func main() {
 	cgl := initCGL()
 	tui_model := InitModel(&cgl, cgl.height, cgl.width)
-	p := tea.NewProgram(tui_model, tea.WithMouseCellMotion())
+	p := tea.NewProgram(
+		tui_model,
+		tea.WithMouseCellMotion(),
+		tea.WithAltScreen(),
+	)
 	if _, err := p.Run(); err != nil {
 		fmt.Println(err)
 		os.Exit(-1)
