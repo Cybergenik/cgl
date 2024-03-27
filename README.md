@@ -18,4 +18,4 @@ by: <a href="https://twitter.com/cybergenik" target="_blank">Luciano Remes </a>
 2. `go run .`
 3. ASCII cellular automata! 
 
-***By default assumes that you're terminal size is at least 65x130, but the simulation should resize.***
+***By default assumes that you're terminal size is at least 66x160, but should resize.***
