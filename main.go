@@ -9,9 +9,8 @@ import (
 )
 
 const (
-	H_MAX     = 65
+	H_MAX     = 67
 	W_MAX     = 160
-	CELL_RAND = 8
 )
 
 type CGL struct {
@@ -96,12 +95,35 @@ func (cgl *CGL) gameLoop() {
 func (cgl *CGL) RandomFill() {
 	for i := 0; i < cgl.height; i++ {
 		for j := 0; j < cgl.width; j++ {
-			v := rand.Intn(CELL_RAND)
+			v := rand.Intn(8) // 1/8 chance to alive
 			if v == 0 {
 				cgl.gameMap[i][j] = true
 			} else {
 				cgl.gameMap[i][j] = false
 			}
+		}
+	}
+}
+
+func (cgl *CGL) EdgeFill() {
+	for i := 0; i < cgl.height; i++ {
+		for j := 0; j < cgl.width; j++ {
+			if i == 0 || i == cgl.height-1 || j == 0 || j == cgl.width-1 {
+				cgl.gameMap[i][j] = true
+            }
+		}
+	}
+}
+
+func (cgl *CGL) PillarFill() {
+    startP1 := (cgl.width/3)-1
+    startP2 := startP1*2
+	for i := 0; i < cgl.height; i++ {
+		for j := startP1; j <= startP1+3; j++ {
+            cgl.gameMap[i][j] = true
+		}
+		for j := startP2; j <= startP2+3; j++ {
+            cgl.gameMap[i][j] = true
 		}
 	}
 }
