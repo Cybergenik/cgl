@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	H_MAX     = 67
-	W_MAX     = 160
+	H_MAX = 66
+	W_MAX = 160
 )
 
 type CGL struct {
@@ -110,20 +110,104 @@ func (cgl *CGL) EdgeFill() {
 		for j := 0; j < cgl.width; j++ {
 			if i == 0 || i == cgl.height-1 || j == 0 || j == cgl.width-1 {
 				cgl.gameMap[i][j] = true
-            }
+			}
 		}
 	}
 }
 
 func (cgl *CGL) PillarFill() {
-    startP1 := (cgl.width/3)-1
-    startP2 := startP1*2
+	startP1 := (cgl.width / 3) - 1
+	startP2 := startP1 * 2
 	for i := 0; i < cgl.height; i++ {
 		for j := startP1; j <= startP1+3; j++ {
-            cgl.gameMap[i][j] = true
+			cgl.gameMap[i][j] = true
 		}
 		for j := startP2; j <= startP2+3; j++ {
-            cgl.gameMap[i][j] = true
+			cgl.gameMap[i][j] = true
+		}
+	}
+}
+
+func (cgl *CGL) RowFill() {
+	startP1 := (cgl.height / 3) - 1
+	startP2 := startP1 * 2
+	for j := 0; j < cgl.width; j++ {
+		for i := startP1; i <= startP1+3; i++ {
+			cgl.gameMap[i][j] = true
+		}
+		for i := startP2; i <= startP2+3; i++ {
+			cgl.gameMap[i][j] = true
+		}
+	}
+}
+
+func (cgl *CGL) DottedLines() {
+	for i := 0; i < cgl.height; i += 3 {
+		for j := 0; j < cgl.width; j += 3 {
+			if (i+j)%2 == 0 {
+				cgl.UpdateAdd(i, j)
+				cgl.UpdateAdd(i, j+1)
+				cgl.UpdateAdd(i, j+2)
+			} else {
+				cgl.UpdateRemove(i, j)
+				cgl.UpdateRemove(i, j+1)
+				cgl.UpdateRemove(i, j+2)
+			}
+		}
+	}
+}
+
+func (cgl *CGL) Threads() {
+	for i := 0; i < cgl.height; i++ {
+		for j := 0; j < cgl.width; j += 3 {
+			if (i+j)%2 == 0 {
+				cgl.UpdateAdd(i, j)
+				cgl.UpdateAdd(i, j+1)
+				cgl.UpdateAdd(i, j+2)
+			} else {
+				cgl.UpdateRemove(i, j)
+				cgl.UpdateRemove(i, j+1)
+				cgl.UpdateRemove(i, j+2)
+			}
+		}
+	}
+}
+
+func (cgl *CGL) Checkerboard() {
+	prev := true
+	for i := 0; i < cgl.height; i++ {
+		if i != 0 && i%4 == 0 {
+			prev = !prev
+		}
+		for j := 0; j < cgl.width; j += 4 {
+			if prev {
+				cgl.UpdateAdd(i, j)
+				cgl.UpdateAdd(i, j+1)
+				cgl.UpdateAdd(i, j+2)
+				cgl.UpdateAdd(i, j+3)
+				prev = false
+			} else {
+				cgl.UpdateRemove(i, j)
+				cgl.UpdateRemove(i, j+1)
+				cgl.UpdateRemove(i, j+2)
+				cgl.UpdateRemove(i, j+3)
+				prev = true
+			}
+		}
+	}
+}
+
+func (cgl *CGL) Diamonds(density int) {
+	delta := cgl.height / density
+	for h := 0; h <= cgl.height; h += delta {
+		for j := 0; j < cgl.width; j++ {
+			for i := 0; i < delta; i++ {
+				cgl.UpdateAdd(h+i, j)
+				cgl.UpdateAdd(h+i, j+1)
+				cgl.UpdateAdd(h+delta-1-i, j)
+				cgl.UpdateAdd(h+delta-1-i, j+1)
+				j++
+			}
 		}
 	}
 }
