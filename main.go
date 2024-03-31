@@ -4,33 +4,36 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"sync"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"golang.org/x/term"
 )
 
 const (
-	H_MAX = 66
-	W_MAX = 160
+	DEFAULT_HEIGHT = 66
+	DEFAULT_WIDTH  = 160
 )
 
 type CGL struct {
+	mu       sync.Mutex
 	gameMap  [][]bool
 	updateCh chan struct{}
 	height   int
 	width    int
 }
 
-func initCGL() CGL {
+func initCGL(height, width int) *CGL {
 	cgl := CGL{
-		gameMap:  make([][]bool, H_MAX),
+		gameMap:  make([][]bool, height),
 		updateCh: make(chan struct{}),
-		height:   H_MAX,
-		width:    W_MAX,
+		height:   height,
+		width:    width,
 	}
 	for i := 0; i < cgl.height; i++ {
 		cgl.gameMap[i] = make([]bool, cgl.width)
 	}
-	return cgl
+	return &cgl
 }
 
 func (cgl *CGL) neighbors(gameMap [][]bool, r int, c int) int {
@@ -67,6 +70,7 @@ func (cgl *CGL) neighbors(gameMap [][]bool, r int, c int) int {
 
 func (cgl *CGL) gameLoop() {
 	for {
+		cgl.mu.Lock()
 		curr_map := make([][]bool, cgl.height)
 		for i := range cgl.gameMap {
 			curr_map[i] = make([]bool, cgl.width)
@@ -88,6 +92,7 @@ func (cgl *CGL) gameLoop() {
 				}
 			}
 		}
+		cgl.mu.Unlock()
 		<-cgl.updateCh
 	}
 }
@@ -220,6 +225,30 @@ func (cgl *CGL) ResetMap() {
 	}
 }
 
+func (cgl *CGL) Resize(height, width int) {
+	if os.Getenv("DEFAULT") != "" {
+		return
+	}
+	cgl.mu.Lock()
+	defer cgl.mu.Unlock()
+	wDiff := width - cgl.width
+	hDiff := height - cgl.height
+	if wDiff > 0 {
+		for i := 0; i < cgl.height; i++ {
+			for range wDiff {
+				cgl.gameMap[i] = append(cgl.gameMap[i], false)
+			}
+		}
+		cgl.width = width
+	}
+	if hDiff > 0 {
+		for range hDiff {
+			cgl.gameMap = append(cgl.gameMap, make([]bool, cgl.width))
+		}
+		cgl.height = height
+	}
+}
+
 func (cgl *CGL) UpdateAdd(x, y int) {
 	if x < 0 || x >= cgl.height {
 		return
@@ -240,28 +269,50 @@ func (cgl *CGL) UpdateRemove(x, y int) {
 	cgl.gameMap[x][y] = false
 }
 
-func (cgl *CGL) SyncFrame() {
-	cgl.updateCh <- struct{}{}
+func (cgl *CGL) GetCell(x, y int) bool {
+	cgl.mu.Lock()
+	defer cgl.mu.Unlock()
+	if x < 0 || x >= cgl.height {
+		return false
+	}
+	if y < 0 || y >= cgl.width {
+		return false
+	}
+	return cgl.gameMap[x][y]
 }
 
-func (cgl *CGL) GetReadOnlyMap() *[][]bool {
-	return &cgl.gameMap
+func (cgl *CGL) SyncFrame() {
+	cgl.updateCh <- struct{}{}
 }
 
 func (cgl *CGL) StartGame() {
 	go cgl.gameLoop()
 }
 
+func getTermSize() (height, width int) {
+	if os.Getenv("DEFAULT") != "" {
+		return DEFAULT_HEIGHT, DEFAULT_WIDTH
+	}
+	W, H, err := term.GetSize(int(os.Stdin.Fd()))
+	H -= HEADING_SIZE
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "CGL: Unable to get terminal size: %v", err)
+		os.Exit(-1)
+	}
+	return H, W
+}
+
 func main() {
-	cgl := initCGL()
-	tui_model := InitModel(&cgl, cgl.height, cgl.width)
+	H, W := getTermSize()
+	cgl := initCGL(H, W)
+	tui_model := InitModel(cgl, cgl.height, cgl.width)
 	p := tea.NewProgram(
 		tui_model,
 		tea.WithMouseCellMotion(),
 		tea.WithAltScreen(),
 	)
 	if _, err := p.Run(); err != nil {
-		fmt.Println(err)
+		fmt.Fprintf(os.Stderr, "CGL: Error running term app: %v", err)
 		os.Exit(-1)
 	}
 }

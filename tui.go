@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"math"
 	"strings"
 	"time"
 
@@ -13,8 +12,8 @@ import (
 )
 
 const (
-	TITLE = `
-  _____                                _____                      ___  __   _ ___   
+	HEADING_SIZE = 10
+	TITLE        = `  _____                                _____                      ___  __   _ ___   
  / ___/__  ___ _    _____ ___ _____   / ___/__ ___ _  ___   ___  / _/ / /  (_) _/__ 
 / /__/ _ \/ _ \ |/|/ / _  / // (_-<  / (_ / _ /  ' \/ -_)  / _ \/ _/ / /__/ / _/ -_)
 \___/\___/_//_/__,__/\_,_/\_, /___/  \___/\_,_/_/_/_/\__/  \___/_/  /____/_/_/ \__/ 
@@ -113,6 +112,7 @@ func (m Model) Init() tea.Cmd {
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	cmds := []tea.Cmd{}
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {
@@ -130,7 +130,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else if m.GameState == Mapping {
 				m.GameState = Playing
 				m.GameEngine.StartGame()
-				return m, tea.Batch(tea.DisableMouse, tea.ClearScreen)
+				cmds = append(cmds, tea.DisableMouse, tea.ClearScreen)
 			} else if m.GameState == PresetChoosing {
 				choice, ok := m.PresetList.SelectedItem().(item)
 				if ok {
@@ -158,7 +158,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeySpace:
 			if m.GameState == Playing {
 				m.GameState = Mapping
-				return m, tea.EnableMouseCellMotion
+				cmds = append(cmds, tea.EnableMouseCellMotion)
 			} else if m.GameState == Mapping {
 				m.GameState = PresetChoosing
 			} else if m.GameState == PresetChoosing {
@@ -168,7 +168,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.GameState == Playing {
 				m.GameEngine.ResetMap()
 				m.GameState = Mapping
-				return m, tea.EnableMouseCellMotion
+				cmds = append(cmds, tea.EnableMouseCellMotion)
 			} else if m.GameState == Mapping {
 				m.GameEngine.ResetMap()
 			} else if m.GameState == PresetChoosing {
@@ -211,27 +211,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case tea.WindowSizeMsg:
-		m.Height = int(math.Min(float64(H_MAX), float64(msg.Height-10)))
-		m.Width = int(math.Min(float64(W_MAX), float64(msg.Width)))
+		m.Height = msg.Height - HEADING_SIZE
+		m.Width = msg.Width
 		m.PresetList.SetWidth(m.Width)
+		m.GameEngine.Resize(m.Height, m.Width)
 	case TickMsg:
 		return m, frameTick(m.FPS)
-	default:
 	}
 	if m.GameState == PresetChoosing {
 		var cmd tea.Cmd
 		m.PresetList, cmd = m.PresetList.Update(msg)
-		return m, cmd
+		cmds = append(cmds, cmd)
 	}
-	return m, nil
+	return m, tea.Batch(cmds...)
 }
 
 func (m Model) View() string {
 	frame := strings.Builder{}
-	gameMap := *m.GameEngine.GetReadOnlyMap()
 	for h := 0; h < m.Height; h++ {
 		for w := 0; w < m.Width; w++ {
-			if gameMap[h][w] {
+			if m.GameEngine.GetCell(h, w) {
 				frame.WriteString(colors[0].Render("■"))
 			} else {
 				frame.WriteString(" ")
