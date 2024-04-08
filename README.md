@@ -7,15 +7,31 @@ in ASCII
 
 <img src="media/cgl_demo.gif" align="center" alt="visualization"/><br>
 
-by: <a href="https://twitter.com/cybergenik" target="_blank">Luciano Remes </a>
+by: <a href="https://twitter.com/cybergenik" target="_blank">Luciano Remes</a>
+
+<h3 align="center">Terminal based ASCII simulation</h3>
+
 </div>
 
+
 ### Requirements:
-- Golang version >= go1.21.5 linux/amd64
+- Golang version >= go1.22 linux/amd64
 
 ### Usage: 
 1. `git clone https://github.com/Cybergenik/cgt && cd cgt`
 2. `go run .`
-3. ASCII cellular automata! 
 
-***By default assumes that you're terminal size is at least 66x160, but should resize.***
+##### Map Editor key bindings:
+- <kbd>Left-MB</kbd>: draw
+- <kbd>Right-MB</kbd>: erase
+- <kbd>SPACE</kbd>: fill map with a preset (hjkl/←↓↑→, Enter, Backspace)
+- <kbd>BACKSPACE</kbd>: clear map
+- <kbd>ENTER</kbd>: draw life!
+
+##### Simulation key bindings:
+- <kbd>SPACE</kbd>: Pause the game state and go back to Map Editor
+- <kbd>BACKSPACE</kbd>: Clear the map and go back to Map Editor
+
+<kbd>Esc</kbd>/<kbd>Ctrl-C</kbd> to exit
+
+_Run with DEFAULT=1 to set a default screen size of 160x66_
