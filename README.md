@@ -18,7 +18,7 @@ by: <a href="https://twitter.com/cybergenik" target="_blank">Luciano Remes</a>
 - Golang version >= go1.22 linux/amd64
 
 ### Usage: 
-1. `git clone https://github.com/Cybergenik/cgt && cd cgt`
+1. `git clone https://github.com/Cybergenik/cgl && cd cgl`
 2. `go run .`
 
 ##### Map Editor key bindings:
