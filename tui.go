@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
+	"image"
 	"io"
 	"strings"
 	"time"
 
+	ncanvas "github.com/NimbleMarkets/ntcharts/canvas"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -90,6 +92,7 @@ type Model struct {
 	GameEngine *CGL
 	FPS        time.Duration
 	PresetList list.Model
+	canvas     ncanvas.Model
 	GameState  int
 	EditState  int
 	Height     int
@@ -117,11 +120,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
-			if m.GameState == Playing {
+			switch m.GameState {
+			case Playing:
 				return m, tea.Quit
-			} else if m.GameState == Mapping {
+			case Mapping:
 				return m, tea.Quit
-			} else if m.GameState == PresetChoosing {
+			case PresetChoosing:
 				m.GameState = Mapping
 			}
 		case tea.KeyEnter:
@@ -165,13 +169,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				break
 			}
 		case tea.KeyBackspace:
-			if m.GameState == Playing {
+			switch m.GameState {
+			case Playing:
 				m.GameEngine.ResetMap()
 				m.GameState = Mapping
 				cmds = append(cmds, tea.EnableMouseCellMotion)
-			} else if m.GameState == Mapping {
+			case Mapping:
 				m.GameEngine.ResetMap()
-			} else if m.GameState == PresetChoosing {
+			case PresetChoosing:
 				m.GameState = Mapping
 			}
 		case tea.KeyRight:
@@ -227,30 +232,47 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
-	frame := strings.Builder{}
+	canvas := ncanvas.New(m.Width, m.Height)
+	canvas.Fill(ncanvas.NewCell(' '))
 	for h := 0; h < m.Height; h++ {
 		for w := 0; w < m.Width; w++ {
 			if m.GameEngine.GetCell(h, w) {
-				frame.WriteString(colors[0].Render("■"))
+				if h%2 == 0 {
+					p := image.Point{w, h}
+					c := canvas.Cell(p)
+					if c.Rune == '▄' {
+						canvas.SetRuneWithStyle(image.Point{w, h}, '█', colors[0])
+					} else {
+						canvas.SetRuneWithStyle(image.Point{w, h}, '▀', colors[0])
+					}
+				} else {
+					p := image.Point{w, h - 1}
+					c := canvas.Cell(p)
+					if c.Rune == '▀' {
+						canvas.SetRuneWithStyle(image.Point{w, h}, '█', colors[0])
+					} else {
+						canvas.SetRuneWithStyle(image.Point{w, h}, '▄', colors[0])
+					}
+				}
 			} else {
-				frame.WriteString(" ")
+				canvas.SetRune(image.Point{w, h}, ' ')
 			}
 		}
-		frame.WriteRune('\n')
 	}
 	var titleMsg string
-	if m.GameState == Playing {
+	switch m.GameState {
+	case Playing:
 		//sync frame render to game state
 		m.GameEngine.SyncFrame()
 		titleMsg = TITLE
-	} else if m.GameState == Mapping {
+	case Mapping:
 		titleMsg = `MAP EDITOR
 LMB draw/RMB erase
 SPACE: choose fill preset
 BACKSPACE: reset
 ENTER: draw life!
         `
-	} else if m.GameState == PresetChoosing {
+	case PresetChoosing:
 		titleMsg = fmt.Sprintf("MAP EDITOR\n%s", m.PresetList.View())
 	}
 
@@ -264,7 +286,7 @@ ENTER: draw life!
 		colors[2].Width(m.Width).Render(strings.Repeat("=", m.Width)),
 		colors[2].Width(m.Width).AlignHorizontal(0.5).Render(fmt.Sprintf("FPS: %d  ←-/+→", m.FPS)),
 		colors[2].Width(m.Width).AlignHorizontal(0.5).Render("Press Esc/Ctrl+C to quit"),
-		frame.String(),
+		canvas.View(),
 	)
 }
 
@@ -290,6 +312,8 @@ func InitModel(gameEngine *CGL, height int, width int) Model {
 		Height:    height,
 		Width:     width,
 	}
+	m.canvas = ncanvas.New(m.Width, m.Height)
+	m.canvas.Fill(ncanvas.NewCell(' '))
 	m.PresetList.SetShowHelp(false)
 	m.PresetList.SetShowTitle(false)
 	m.PresetList.SetShowStatusBar(false)
