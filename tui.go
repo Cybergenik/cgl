@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
+	"image"
 	"io"
 	"strings"
 	"time"
 
+	ncanvas "github.com/NimbleMarkets/ntcharts/canvas"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -90,6 +92,7 @@ type Model struct {
 	GameEngine *CGL
 	FPS        time.Duration
 	PresetList list.Model
+	mousePrevY int
 	GameState  int
 	EditState  int
 	Height     int
@@ -117,11 +120,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
-			if m.GameState == Playing {
+			switch m.GameState {
+			case Playing:
 				return m, tea.Quit
-			} else if m.GameState == Mapping {
+			case Mapping:
 				return m, tea.Quit
-			} else if m.GameState == PresetChoosing {
+			case PresetChoosing:
 				m.GameState = Mapping
 			}
 		case tea.KeyEnter:
@@ -165,13 +169,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				break
 			}
 		case tea.KeyBackspace:
-			if m.GameState == Playing {
+			switch m.GameState {
+			case Playing:
 				m.GameEngine.ResetMap()
 				m.GameState = Mapping
 				cmds = append(cmds, tea.EnableMouseCellMotion)
-			} else if m.GameState == Mapping {
+			case Mapping:
 				m.GameEngine.ResetMap()
-			} else if m.GameState == PresetChoosing {
+			case PresetChoosing:
 				m.GameState = Mapping
 			}
 		case tea.KeyRight:
@@ -188,14 +193,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch msg.Button {
 			case tea.MouseButton(tea.MouseButtonLeft):
 				m.EditState = Adding
+				m.updateGameState(msg.X, msg.Y)
 			case tea.MouseButton(tea.MouseButtonRight):
 				m.EditState = Removing
 			}
 		case tea.MouseActionMotion:
+			deltaY := m.mousePrevY - msg.Y
+			m.mousePrevY = msg.Y
 			switch msg.Button {
 			case tea.MouseButton(tea.MouseButtonLeft):
 				if m.EditState == Adding {
-					m.GameEngine.UpdateAdd(msg.Y-9, msg.X)
+					m.updateGameState(msg.X, msg.Y)
+					if deltaY != 0 {
+						m.updateGameState(msg.X, msg.Y)
+					}
 				}
 			case tea.MouseButton(tea.MouseButtonRight):
 				if m.EditState == Removing {
@@ -214,7 +225,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Height = msg.Height - HEADING_SIZE
 		m.Width = msg.Width
 		m.PresetList.SetWidth(m.Width)
-		m.GameEngine.Resize(m.Height, m.Width)
+		m.GameEngine.Resize(m.Height*2, m.Width)
 	case TickMsg:
 		return m, frameTick(m.FPS)
 	}
@@ -226,31 +237,57 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
+func (m Model) updateGameState(x, y int) {
+	termY := ((y - 9) * 2)
+	if !m.GameEngine.GetCell(termY, x) {
+		m.GameEngine.UpdateAdd(termY, x)
+	} else {
+		m.GameEngine.UpdateAdd(termY+1, x)
+	}
+}
+
 func (m Model) View() string {
-	frame := strings.Builder{}
-	for h := 0; h < m.Height; h++ {
+	canvas := ncanvas.New(m.Width, m.Height)
+	canvas.Fill(ncanvas.NewCell(' '))
+	for h := 0; h < m.Height*2; h++ {
 		for w := 0; w < m.Width; w++ {
 			if m.GameEngine.GetCell(h, w) {
-				frame.WriteString(colors[0].Render("■"))
+				if h%2 == 0 {
+					p := image.Point{w, h / 2}
+					c := canvas.Cell(p)
+					if c.Rune == '▄' {
+						canvas.SetRuneWithStyle(p, '█', colors[0])
+					} else {
+						canvas.SetRuneWithStyle(p, '▀', colors[0])
+					}
+				} else {
+					p := image.Point{w, (h - 1) / 2}
+					c := canvas.Cell(p)
+					if c.Rune == '▀' {
+						canvas.SetRuneWithStyle(p, '█', colors[0])
+					} else {
+						canvas.SetRuneWithStyle(p, '▄', colors[0])
+					}
+				}
 			} else {
-				frame.WriteString(" ")
+				canvas.SetRune(image.Point{w, h}, ' ')
 			}
 		}
-		frame.WriteRune('\n')
 	}
 	var titleMsg string
-	if m.GameState == Playing {
+	switch m.GameState {
+	case Playing:
 		//sync frame render to game state
 		m.GameEngine.SyncFrame()
 		titleMsg = TITLE
-	} else if m.GameState == Mapping {
+	case Mapping:
 		titleMsg = `MAP EDITOR
 LMB draw/RMB erase
 SPACE: choose fill preset
 BACKSPACE: reset
 ENTER: draw life!
         `
-	} else if m.GameState == PresetChoosing {
+	case PresetChoosing:
 		titleMsg = fmt.Sprintf("MAP EDITOR\n%s", m.PresetList.View())
 	}
 
@@ -264,7 +301,7 @@ ENTER: draw life!
 		colors[2].Width(m.Width).Render(strings.Repeat("=", m.Width)),
 		colors[2].Width(m.Width).AlignHorizontal(0.5).Render(fmt.Sprintf("FPS: %d  ←-/+→", m.FPS)),
 		colors[2].Width(m.Width).AlignHorizontal(0.5).Render("Press Esc/Ctrl+C to quit"),
-		frame.String(),
+		canvas.View(),
 	)
 }
 
