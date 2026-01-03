@@ -92,7 +92,7 @@ type Model struct {
 	GameEngine *CGL
 	FPS        time.Duration
 	PresetList list.Model
-	canvas     ncanvas.Model
+	mousePrevY int
 	GameState  int
 	EditState  int
 	Height     int
@@ -193,14 +193,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch msg.Button {
 			case tea.MouseButton(tea.MouseButtonLeft):
 				m.EditState = Adding
+				m.updateGameState(msg.X, msg.Y)
 			case tea.MouseButton(tea.MouseButtonRight):
 				m.EditState = Removing
 			}
 		case tea.MouseActionMotion:
+			deltaY := m.mousePrevY - msg.Y
+			m.mousePrevY = msg.Y
 			switch msg.Button {
 			case tea.MouseButton(tea.MouseButtonLeft):
 				if m.EditState == Adding {
-					m.GameEngine.UpdateAdd(msg.Y-9, msg.X)
+					m.updateGameState(msg.X, msg.Y)
+					if deltaY != 0 {
+						m.updateGameState(msg.X, msg.Y)
+					}
 				}
 			case tea.MouseButton(tea.MouseButtonRight):
 				if m.EditState == Removing {
@@ -219,7 +225,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Height = msg.Height - HEADING_SIZE
 		m.Width = msg.Width
 		m.PresetList.SetWidth(m.Width)
-		m.GameEngine.Resize(m.Height, m.Width)
+		m.GameEngine.Resize(m.Height*2, m.Width)
 	case TickMsg:
 		return m, frameTick(m.FPS)
 	}
@@ -231,27 +237,36 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
+func (m Model) updateGameState(x, y int) {
+	termY := ((y - 9) * 2)
+	if !m.GameEngine.GetCell(termY, x) {
+		m.GameEngine.UpdateAdd(termY, x)
+	} else {
+		m.GameEngine.UpdateAdd(termY+1, x)
+	}
+}
+
 func (m Model) View() string {
 	canvas := ncanvas.New(m.Width, m.Height)
 	canvas.Fill(ncanvas.NewCell(' '))
-	for h := 0; h < m.Height; h++ {
+	for h := 0; h < m.Height*2; h++ {
 		for w := 0; w < m.Width; w++ {
 			if m.GameEngine.GetCell(h, w) {
 				if h%2 == 0 {
-					p := image.Point{w, h}
+					p := image.Point{w, h / 2}
 					c := canvas.Cell(p)
 					if c.Rune == '▄' {
-						canvas.SetRuneWithStyle(image.Point{w, h}, '█', colors[0])
+						canvas.SetRuneWithStyle(p, '█', colors[0])
 					} else {
-						canvas.SetRuneWithStyle(image.Point{w, h}, '▀', colors[0])
+						canvas.SetRuneWithStyle(p, '▀', colors[0])
 					}
 				} else {
-					p := image.Point{w, h - 1}
+					p := image.Point{w, (h - 1) / 2}
 					c := canvas.Cell(p)
 					if c.Rune == '▀' {
-						canvas.SetRuneWithStyle(image.Point{w, h}, '█', colors[0])
+						canvas.SetRuneWithStyle(p, '█', colors[0])
 					} else {
-						canvas.SetRuneWithStyle(image.Point{w, h}, '▄', colors[0])
+						canvas.SetRuneWithStyle(p, '▄', colors[0])
 					}
 				}
 			} else {
@@ -312,8 +327,6 @@ func InitModel(gameEngine *CGL, height int, width int) Model {
 		Height:    height,
 		Width:     width,
 	}
-	m.canvas = ncanvas.New(m.Width, m.Height)
-	m.canvas.Fill(ncanvas.NewCell(' '))
 	m.PresetList.SetShowHelp(false)
 	m.PresetList.SetShowTitle(false)
 	m.PresetList.SetShowStatusBar(false)
