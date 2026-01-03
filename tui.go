@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"io"
+	"math"
 	"strings"
 	"time"
 
@@ -93,6 +94,7 @@ type Model struct {
 	FPS        time.Duration
 	PresetList list.Model
 	mousePrevY int
+	mousePrevX int
 	GameState  int
 	EditState  int
 	Height     int
@@ -193,18 +195,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch msg.Button {
 			case tea.MouseButton(tea.MouseButtonLeft):
 				m.EditState = Adding
+				m.mousePrevX = msg.X
+				m.mousePrevY = msg.Y
 				m.updateGameState(msg.X, msg.Y)
 			case tea.MouseButton(tea.MouseButtonRight):
 				m.EditState = Removing
 			}
 		case tea.MouseActionMotion:
 			deltaY := m.mousePrevY - msg.Y
+			deltaX := m.mousePrevX - msg.X
 			m.mousePrevY = msg.Y
+			m.mousePrevX = msg.X
 			switch msg.Button {
 			case tea.MouseButton(tea.MouseButtonLeft):
 				if m.EditState == Adding {
 					m.updateGameState(msg.X, msg.Y)
-					if deltaY != 0 {
+					if deltaY != 0 && math.Abs(float64(deltaY)) >= math.Abs(float64(deltaX)) {
 						m.updateGameState(msg.X, msg.Y)
 					}
 				}
