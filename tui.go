@@ -109,14 +109,13 @@ func frameTick(fps time.Duration) tea.Cmd {
 	})
 }
 
-func (m Model) Init() tea.Cmd {
+func (m *Model) Init() tea.Cmd {
 	return tea.Sequence([]tea.Cmd{
-		tea.SetWindowTitle("Conway's Game of Life"),
-		frameTick(m.FPS),
+		tea.SetWindowTitle("Game of Life"),
 	}...)
 }
 
-func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	cmds := []tea.Cmd{}
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -136,7 +135,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else if m.GameState == Mapping {
 				m.GameState = Playing
 				m.GameEngine.StartGame()
-				cmds = append(cmds, tea.DisableMouse, tea.ClearScreen)
+				cmds = append(cmds, tea.DisableMouse, tea.ClearScreen, frameTick(m.FPS))
 			} else if m.GameState == PresetChoosing {
 				choice, ok := m.PresetList.SelectedItem().(item)
 				if ok {
@@ -182,9 +181,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.GameState = Mapping
 			}
 		case tea.KeyRight:
-			m.FPS += 1
+			m.FPS++
+			m.FPS = min(m.FPS, 200)
 		case tea.KeyLeft:
-			m.FPS -= 1
+			m.FPS--
+			m.FPS = max(m.FPS, 1)
 		}
 	case tea.MouseMsg:
 		if m.GameState != Mapping {
@@ -196,27 +197,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case tea.MouseButton(tea.MouseButtonLeft):
 				m.EditState = Adding
 				m.mousePrevX = msg.X
-				m.mousePrevY = msg.Y
-				m.updateGameState(msg.X, msg.Y)
+				gameY := ((msg.Y - 9) * 2)
+				m.mousePrevY = gameY
+				m.updateGameState(msg.X, gameY, true)
 			case tea.MouseButton(tea.MouseButtonRight):
 				m.EditState = Removing
 			}
 		case tea.MouseActionMotion:
-			deltaY := m.mousePrevY - msg.Y
-			deltaX := m.mousePrevX - msg.X
-			m.mousePrevY = msg.Y
-			m.mousePrevX = msg.X
 			switch msg.Button {
 			case tea.MouseButton(tea.MouseButtonLeft):
 				if m.EditState == Adding {
-					m.updateGameState(msg.X, msg.Y)
-					if deltaY != 0 && math.Abs(float64(deltaY)) >= math.Abs(float64(deltaX)) {
-						m.updateGameState(msg.X, msg.Y)
-					}
+					gameY := ((msg.Y - 9) * 2)
+					m.updateGameState(msg.X, gameY, true)
 				}
 			case tea.MouseButton(tea.MouseButtonRight):
 				if m.EditState == Removing {
-					m.GameEngine.UpdateRemove(msg.Y-9, msg.X)
+					gameY := ((msg.Y - 9) * 2)
+					m.updateGameState(msg.X, gameY, false)
 				}
 			}
 		case tea.MouseActionRelease:
@@ -233,7 +230,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.PresetList.SetWidth(m.Width)
 		m.GameEngine.Resize(m.Height*2, m.Width)
 	case TickMsg:
-		return m, frameTick(m.FPS)
+		if m.GameState == Playing {
+			//sync frame render to game state
+			m.GameEngine.SyncFrame()
+			return m, frameTick(m.FPS)
+		}
+		return m, nil
 	}
 	if m.GameState == PresetChoosing {
 		var cmd tea.Cmd
@@ -243,16 +245,41 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m Model) updateGameState(x, y int) {
-	termY := ((y - 9) * 2)
-	if !m.GameEngine.GetCell(termY, x) {
-		m.GameEngine.UpdateAdd(termY, x)
-	} else {
-		m.GameEngine.UpdateAdd(termY+1, x)
+// Uses Bresenhams line algorithm to fill: https://en.wikipedia.org/wiki/Bresenham's_line_algorithm
+func (m *Model) updateGameState(x, y int, b bool) {
+	x0, y0 := m.mousePrevX, m.mousePrevY
+	m.mousePrevX, m.mousePrevY = x, y
+	if m.GameEngine.GetCell(y, x) {
+		y0++
+	}
+	deltaX := math.Abs(float64(x - x0))
+	deltaY := math.Abs(float64(y - y0))
+	signX := 1
+	if x0 > x {
+		signX = -1
+	}
+	signY := 1
+	if y0 > y {
+		signY = -1
+	}
+	err := deltaX - deltaY
+	for {
+		m.GameEngine.SetCell(y0, x0, b)
+		if x == x0 && y == y0 {
+			break
+		}
+		e2 := 2 * err
+		if e2 > -deltaY {
+			err -= deltaY
+			x0 += signX
+		}
+		if e2 < deltaX {
+			err += deltaX
+			y0 += signY
+		}
 	}
 }
-
-func (m Model) View() string {
+func (m *Model) View() string {
 	canvas := ncanvas.New(m.Width, m.Height)
 	canvas.Fill(ncanvas.NewCell(' '))
 	for h := 0; h < m.Height*2; h++ {
@@ -283,8 +310,6 @@ func (m Model) View() string {
 	var titleMsg string
 	switch m.GameState {
 	case Playing:
-		//sync frame render to game state
-		m.GameEngine.SyncFrame()
 		titleMsg = TITLE
 	case Mapping:
 		titleMsg = `MAP EDITOR
@@ -311,8 +336,8 @@ ENTER: draw life!
 	)
 }
 
-func InitModel(gameEngine *CGL, height int, width int) Model {
-	m := Model{
+func InitModel(gameEngine *CGL, height int, width int) *Model {
+	m := &Model{
 		GameEngine: gameEngine,
 		GameState:  Mapping,
 		PresetList: list.New([]list.Item{

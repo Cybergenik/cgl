@@ -53,7 +53,7 @@ func (cgl *CGL) neighbors(gameMap [][]bool, r int, c int) int {
 	if gameMap[r][dc] {
 		total += 1
 	}
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		if gameMap[adr][dc] {
 			total += 1
 		}
@@ -150,13 +150,13 @@ func (cgl *CGL) DottedLines() {
 	for i := 0; i < cgl.height; i += 3 {
 		for j := 0; j < cgl.width; j += 3 {
 			if (i+j)%2 == 0 {
-				cgl.UpdateAdd(i, j)
-				cgl.UpdateAdd(i, j+1)
-				cgl.UpdateAdd(i, j+2)
+				cgl.SetCell(i, j, true)
+				cgl.SetCell(i, j+1, true)
+				cgl.SetCell(i, j+2, true)
 			} else {
-				cgl.UpdateRemove(i, j)
-				cgl.UpdateRemove(i, j+1)
-				cgl.UpdateRemove(i, j+2)
+				cgl.SetCell(i, j, false)
+				cgl.SetCell(i, j+1, false)
+				cgl.SetCell(i, j+2, false)
 			}
 		}
 	}
@@ -166,13 +166,13 @@ func (cgl *CGL) Threads() {
 	for i := 0; i < cgl.height; i++ {
 		for j := 0; j < cgl.width; j += 3 {
 			if (i+j)%2 == 0 {
-				cgl.UpdateAdd(i, j)
-				cgl.UpdateAdd(i, j+1)
-				cgl.UpdateAdd(i, j+2)
+				cgl.SetCell(i, j, true)
+				cgl.SetCell(i, j+1, true)
+				cgl.SetCell(i, j+2, true)
 			} else {
-				cgl.UpdateRemove(i, j)
-				cgl.UpdateRemove(i, j+1)
-				cgl.UpdateRemove(i, j+2)
+				cgl.SetCell(i, j, false)
+				cgl.SetCell(i, j+1, false)
+				cgl.SetCell(i, j+2, false)
 			}
 		}
 	}
@@ -186,16 +186,16 @@ func (cgl *CGL) Checkerboard() {
 		}
 		for j := 0; j < cgl.width; j += 4 {
 			if prev {
-				cgl.UpdateAdd(i, j)
-				cgl.UpdateAdd(i, j+1)
-				cgl.UpdateAdd(i, j+2)
-				cgl.UpdateAdd(i, j+3)
+				cgl.SetCell(i, j, true)
+				cgl.SetCell(i, j+1, true)
+				cgl.SetCell(i, j+2, true)
+				cgl.SetCell(i, j+3, true)
 				prev = false
 			} else {
-				cgl.UpdateRemove(i, j)
-				cgl.UpdateRemove(i, j+1)
-				cgl.UpdateRemove(i, j+2)
-				cgl.UpdateRemove(i, j+3)
+				cgl.SetCell(i, j, false)
+				cgl.SetCell(i, j+1, false)
+				cgl.SetCell(i, j+2, false)
+				cgl.SetCell(i, j+3, false)
 				prev = true
 			}
 		}
@@ -206,11 +206,11 @@ func (cgl *CGL) Diamonds(density int) {
 	delta := cgl.height / density
 	for h := 0; h <= cgl.height; h += delta {
 		for j := 0; j < cgl.width; j++ {
-			for i := 0; i < delta; i++ {
-				cgl.UpdateAdd(h+i, j)
-				cgl.UpdateAdd(h+i, j+1)
-				cgl.UpdateAdd(h+delta-1-i, j)
-				cgl.UpdateAdd(h+delta-1-i, j+1)
+			for i := range delta {
+				cgl.SetCell(h+i, j, true)
+				cgl.SetCell(h+i, j+1, true)
+				cgl.SetCell(h+delta-1-i, j, true)
+				cgl.SetCell(h+delta-1-i, j+1, true)
 				j++
 			}
 		}
@@ -249,24 +249,16 @@ func (cgl *CGL) Resize(height, width int) {
 	}
 }
 
-func (cgl *CGL) UpdateAdd(x, y int) {
+func (cgl *CGL) SetCell(x, y int, b bool) {
+	cgl.mu.Lock()
+	defer cgl.mu.Unlock()
 	if x < 0 || x >= cgl.height {
 		return
 	}
 	if y < 0 || y >= cgl.width {
 		return
 	}
-	cgl.gameMap[x][y] = true
-}
-
-func (cgl *CGL) UpdateRemove(x, y int) {
-	if x < 0 || x >= cgl.height {
-		return
-	}
-	if y < 0 || y >= cgl.width {
-		return
-	}
-	cgl.gameMap[x][y] = false
+	cgl.gameMap[x][y] = b
 }
 
 func (cgl *CGL) GetCell(x, y int) bool {
