@@ -15,7 +15,7 @@ by: <a href="https://twitter.com/cybergenik" target="_blank">Luciano Remes</a>
 
 
 ### Requirements:
-- Golang version >= go1.22 linux/amd64
+- Golang version >= go1.25 linux/amd64
 
 ### Usage: 
 1. `git clone https://github.com/Cybergenik/cgt && cd cgt`
